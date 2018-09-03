@@ -22,14 +22,14 @@ cabal init \
 
 cp $DIR/Main.hs $tmp
 
-nix-build $DIR -A hie --out-link $DIR/hie
+nix-build $DIR -A hie \
+	--out-link $DIR/hie \
+	--option extra-substituters https://infinisil.cachix.org \
+	--option trusted-public-keys "infinisil.cachix.org-1:AL3v/0xIYDyK+DCafL02HoeoHjprJiHE97ZVK3m8jdg= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
 
-nix-shell $DIR \
-  -A pkg \
+nix-shell $DIR -A pkg \
 	--arg dir $tmp \
 	--pure \
-	--option extra-substituters https://infinisil.cachix.org \
-	--option trusted-public-keys "infinisil.cachix.org-1:AL3v/0xIYDyK+DCafL02HoeoHjprJiHE97ZVK3m8jdg= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=" \
 	--run "exec emacs -Q -l $DIR/init.el Main.hs" &
 
 echo "looking for hie to emacs process $!"
