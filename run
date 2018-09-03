@@ -1,45 +1,62 @@
 #!/usr/bin/env nix-shell
-#!nix-shell -i bash -A env
+#!nix-shell -i bash -A env --pure
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 
 DEPENDENCIES=""
 for arg in "$@"; do
 	DEPENDENCIES="$DEPENDENCIES --dependency $arg"
 done
 
-echo "Creating new project with dependencies $DEPENDENCIES"
+tmp=$(mktemp -d)
+pushd $tmp
 
-mkdir -p test && pushd test
 cabal init \
 	--non-interactive \
 	--no-comments \
 	--minimal \
 	--overwrite \
+	--package-name test \
 	--dependency base $DEPENDENCIES \
 	--main-is Main.hs
 
-echo '{-# LANGUAGE TemplateHaskell #-}' > Main.hs
-echo 'main = putStrLn "hi"' >> Main.hs
+cp $DIR/Main.hs $tmp
 
-echo 'use_nix .. -A pkg' > .envrc
+nix-shell $DIR \
+  -A pkg \
+	--arg dir $tmp \
+	--pure \
+	--option extra-substituters https://infinisil.cachix.org \
+	--option trusted-public-keys "infinisil.cachix.org-1:AL3v/0xIYDyK+DCafL02HoeoHjprJiHE97ZVK3m8jdg= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=" \
+	--run "exec emacs -Q -l $DIR/init.el Main.hs" &
 
-# Our nix-shell would set this to /run/user/1000
-# While emacs defaults to /tmp
-export TMPDIR=/tmp
-emacsclient --eval '(with-current-buffer "Main.hs" (lsp-restart-workspace))'
+echo "looking for hie to emacs process $!"
 
-time="none"
-while true; do
-	sleep 2
-	newtime=$(ps -p $(pgrep hie-8.4) -o times h | tr -d ' ')
-	if [ "$time" = "$newtime" ]; then
-		break
-	else
-		echo "Waiting, time: $newtime"
-		time="$newtime"
-	fi
+while
+	hie=$(pgrep -P $! hie)
+	[ -z $hie ]
+do
+	sleep 0.3
 done
+echo "hie found: $hie"
+
+time=0
+sleep 4
+
+while
+	newtime=$(ps -p $hie -o times h | tr -d ' ')
+	[ "$time" != "$newtime" ]
+do
+	echo "Have been waiting for $newtime"
+	time=$newtime
+	sleep 2
+done
+
+kill $!
+
 result="$@:$time"
 echo "result: $result"
-echo "$result" >> ../log
+touch $DIR/results
+echo "$result" >> $DIR/results
 
 popd
