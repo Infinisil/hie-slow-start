@@ -1,0 +1,45 @@
+#!/usr/bin/env nix-shell
+#!nix-shell -i bash -A env
+
+DEPENDENCIES=""
+for arg in "$@"; do
+	DEPENDENCIES="$DEPENDENCIES --dependency $arg"
+done
+
+echo "Creating new project with dependencies $DEPENDENCIES"
+
+mkdir -p test && pushd test
+cabal init \
+	--non-interactive \
+	--no-comments \
+	--minimal \
+	--overwrite \
+	--dependency base $DEPENDENCIES \
+	--main-is Main.hs
+
+echo '{-# LANGUAGE TemplateHaskell #-}' > Main.hs
+echo 'main = putStrLn "hi"' >> Main.hs
+
+echo 'use_nix .. -A pkg' > .envrc
+
+# Our nix-shell would set this to /run/user/1000
+# While emacs defaults to /tmp
+export TMPDIR=/tmp
+emacsclient --eval '(with-current-buffer "Main.hs" (lsp-restart-workspace))'
+
+time="none"
+while true; do
+	sleep 2
+	newtime=$(ps -p $(pgrep hie-8.4) -o times h | tr -d ' ')
+	if [ "$time" = "$newtime" ]; then
+		break
+	else
+		echo "Waiting, time: $newtime"
+		time="$newtime"
+	fi
+done
+result="$@:$time"
+echo "result: $result"
+echo "$result" >> ../log
+
+popd
