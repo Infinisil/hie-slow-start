@@ -17,9 +17,12 @@ let
 in
 
 {
+  inherit hie;
+
   env = pkgs.mkShell {
     buildInputs = [ hpkgs.cabal-install hpkgs.ghc pkgs.nix pkgs.procps ];
   };
+
   pkg = { dir }: (hpkgs.callCabal2nix "test" dir {}).env.overrideAttrs (old: {
     buildInputs = old.buildInputs or [] ++ [ hpkgs.cabal-install emacs hie ];
   });

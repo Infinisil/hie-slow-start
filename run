@@ -22,6 +22,8 @@ cabal init \
 
 cp $DIR/Main.hs $tmp
 
+nix-build $DIR -A hie --out-link $DIR/hie
+
 nix-shell $DIR \
   -A pkg \
 	--arg dir $tmp \
